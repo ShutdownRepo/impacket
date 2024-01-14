@@ -1489,6 +1489,31 @@ class PDRS_MSG_REPADD(NDRPOINTER):
     )
 
 
+# 4.1.20.1.2 DRS_MSG_REPDEL_V1
+class DRS_MSG_REPDEL_V1(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pszDsaSrc', PCHAR),
+        ('ulOptions', ULONG),
+    )
+
+
+# 4.1.20.1.1 DRS_MSG_REPDEL
+class DRS_MSG_REPDEL(NDRUNION):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_MSG_REPDEL_V1),
+    }
+
+
+class PDRS_MSG_REPDEL(NDRPOINTER):
+    referent = (
+        ('Data', DRS_MSG_REPDEL),
+    )
+
+
 ################################################################################
 # RPC CALLS
 ################################################################################
@@ -1642,6 +1667,15 @@ class DRSReplicaAdd(NDRCALL):
     )
 
 
+# 4.1.20 IDL_DRSReplicaDel (Opnum 6)
+class DRSReplicaDel(NDRCALL):
+    structure = (
+        ('hDrs', DRS_HANDLE),
+        ('dwVersion', DWORD),
+        ('pmsgDel', PDRS_MSG_REPDEL),
+    )
+
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
@@ -1728,6 +1762,13 @@ def hDRSReplicaAdd(dce, hDrs, dwVersion, pmsgAdd):
     request['hDrs'] = hDrs
     request['dwVersion'] = dwVersion
     request['pmsgAdd'] = pmsgAdd
+
+
+def hDRSReplicaDel(dce, hDrs, dwVersion, pmsgDel):
+    request = DRSReplicaDel()
+    request['hDrs'] = hDrs
+    request['dwVersion'] = dwVersion
+    request['pmsgDel'] = pmsgDel
 
 
 def deriveKey(baseKey):
