@@ -33,7 +33,7 @@ from six import PY2
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER
+    LARGE_INTEGER, PCHAR, UCHAR, ULONGLONG
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -687,6 +687,29 @@ class PDRS_SecBufferDesc(NDRPOINTER):
     )
 
 
+# 5.165 REPLTIMES
+class REPLTIMES(NDRSTRUCT):
+    structure = (
+        ('rgTimes', UCHAR),
+    )
+
+
+# 5.219 VAR_SIZE_BUFFER_WITH_VERSION
+class VAR_SIZE_BUFFER_WITH_VERSION(NDRSTRUCT):
+    structure = (
+        ('ulVersion', ULONG),
+        ('cbByteBuffer', ULONG),
+        ('ullPadding', ULONGLONG),
+        ('rgbBuffer', BYTE_ARRAY),
+    )
+
+
+class PVAR_SIZE_BUFFER_WITH_VERSION(NDRPOINTER):
+    referent = (
+        ('Data', VAR_SIZE_BUFFER_WITH_VERSION)
+    )
+
+
 # 5.50 DSNAME
 class WCHAR_ARRAY(NDRUniConformantArray):
     item = 'H'
@@ -705,6 +728,8 @@ class WCHAR_ARRAY(NDRUniConformantArray):
                 LOG.error(str(e))
         else:
             return NDR.__getitem__(self, key)
+
+
 
 
 class DSNAME(NDRSTRUCT):
@@ -1409,6 +1434,61 @@ class DRS_MSG_ADDENTRYREQ(NDRUNION):
         3: ('V3', DRS_MSG_ADDENTRYREQ_V3),
     }
 
+
+# 4.1.19.1.2 DRS_MSG_REPADD_V1
+class DRS_MSG_REPADD_V1(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pszDsaSrc', PCHAR),  # don't know if it's supposed to be PCHAR or LPSTR
+        ('rtSchedule', REPLTIMES),
+        ('ulOptions', ULONG),
+    )
+
+
+# 4.1.19.1.2 DRS_MSG_REPADD_V2
+class DRS_MSG_REPADD_V2(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pSourceDsaDN', PDSNAME),
+        ('pTransportDN', PDSNAME),
+        ('pszSourceDsaAddress', PCHAR),
+        ('rtSchedule', REPLTIMES),
+        ('ulOptions', ULONG),
+    )
+
+
+# 4.1.19.1.2 DRS_MSG_REPADD_V3
+class DRS_MSG_REPADD_V3(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pSourceDsaDN', PDSNAME),
+        ('pTransportDN', PDSNAME),
+        ('pszSourceDsaAddress', PCHAR),
+        ('rtSchedule', REPLTIMES),
+        ('ulOptions', ULONG),
+        ('correlationID', GUID),
+        ('pReservedBuffer', PVAR_SIZE_BUFFER_WITH_VERSION),
+    )
+
+
+# 4.1.19.1.1 DRS_MSG_REPADD
+class DRS_MSG_REPADD(NDRUNION):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_MSG_ADDENTRYREQ_V1),
+        2: ('V2', DRS_MSG_ADDENTRYREQ_V2),
+        3: ('V3', DRS_MSG_ADDENTRYREQ_V3),
+    }
+
+
+class PDRS_MSG_REPADD(NDRPOINTER):
+    referent = (
+        ('Data', DRS_MSG_REPADD),
+    )
+
+
 ################################################################################
 # RPC CALLS
 ################################################################################
@@ -1553,6 +1633,15 @@ class DRSAddEntryResponse(NDRCALL):
 # TODO : this is a dummy structure that needs fixing
 
 
+# 4.1.19 IDL_DRSReplicaAdd (Opnum 5)
+class DRSReplicaAdd(NDRCALL):
+    structure = (
+        ('hDrs', DRS_HANDLE),
+        ('dwVersion', DWORD),
+        ('pmsgAdd', PDRS_MSG_REPADD),
+    )
+
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
@@ -1632,6 +1721,13 @@ def hDRSAddEntry(dce, hDrs, dwInVersion, pmsgIn):
         request['pmsgIn']['EntInfList'] = pmsgIn['EntInfList']
         request['pmsgIn']['pClientCreds'] = pmsgIn['pClientCreds']
     return dce.request(request)
+
+
+def hDRSReplicaAdd(dce, hDrs, dwVersion, pmsgAdd):
+    request = DRSReplicaAdd()
+    request['hDrs'] = hDrs
+    request['dwVersion'] = dwVersion
+    request['pmsgAdd'] = dwVersion
 
 
 def deriveKey(baseKey):
