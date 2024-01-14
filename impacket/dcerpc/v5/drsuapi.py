@@ -346,40 +346,6 @@ class DRS_EXTENSIONS_INT(Structure):
         ('dwExtCaps', '<L=0'),
     )
 
-
-# 4.1.1.1.1 DRS_MSG_ADDENTRYREQ
-class DRS_MSG_ADDENTRYREQ():
-    commonHdr = (
-        ('tag', DWORD),
-    )
-    union = {
-        1: ('V1', DRS_MSG_ADDENTRYREQ_V1),
-        2: ('V2', DRS_MSG_ADDENTRYREQ_V2),
-        3: ('V3', DRS_MSG_ADDENTRYREQ_V3),
-    }
-
-# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V1
-class DRS_MSG_ADDENTRYREQ_V1(NDRSTRUCT):
-    structure = (
-        ('pObject', PDSNAME),
-        ('AttrBlock', ATTRBLOCK),
-    )
-
-# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V2
-class DRS_MSG_ADDENTRYREQ_V2(NDRSTRUCT):
-    structure = (
-        ('EntInfList', ENTINFLIST),
-    )
-
-
-# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V3
-class DRS_MSG_ADDENTRYREQ_V3(NDRSTRUCT):
-    structure = (
-        ('EntInfList', ENTINFLIST),
-        ('pClientCreds', PDRS_SecBufferDesc),
-    )
-
-
 # 4.1.5.1.2 DRS_MSG_DCINFOREQ_V1
 class DRS_MSG_DCINFOREQ_V1(NDRSTRUCT):
     structure = (
@@ -694,10 +660,16 @@ class DRS_SecBuffer(NDRSTRUCT):
         ('pvBuffer', PBYTE_ARRAY),
     )
 
-class PDRS_SecBufferDesc(NDRPOINTER):
+
+class DRS_SecBuffer_ARRAY(NDRUniConformantArray):
+    item = DRS_SecBuffer
+
+
+class PDRS_SecBuffer_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', DRS_SecBufferDesc)
+        ('Data', DRS_SecBuffer_ARRAY)
     )
+
 
 # 5.44 DRS_SecBufferDesc
 class DRS_SecBufferDesc(NDRSTRUCT):
@@ -707,13 +679,12 @@ class DRS_SecBufferDesc(NDRSTRUCT):
         ('Buffers', PDRS_SecBuffer_ARRAY)
     )
 
-class PDRS_SecBuffer_ARRAY(NDRPOINTER):
+
+class PDRS_SecBufferDesc(NDRPOINTER):
     referent = (
-        ('Data', DRS_SecBuffer_ARRAY)
+        ('Data', DRS_SecBufferDesc)
     )
 
-class DRS_SecBuffer_ARRAY(NDRUniConformantArray):
-    item = DRS_SecBuffer
 
 # 5.50 DSNAME
 class WCHAR_ARRAY(NDRUniConformantArray):
@@ -1403,6 +1374,40 @@ class DRS_MSG_NT4_CHGLOG_REPLY(NDRUNION):
     }
 
 
+# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V1
+class DRS_MSG_ADDENTRYREQ_V1(NDRSTRUCT):
+    structure = (
+        ('pObject', PDSNAME),
+        ('AttrBlock', ATTRBLOCK),
+    )
+
+
+# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V2
+class DRS_MSG_ADDENTRYREQ_V2(NDRSTRUCT):
+    structure = (
+        ('EntInfList', ENTINFLIST),
+    )
+
+
+# 4.1.1.1.2 DRS_MSG_ADDENTRYREQ_V3
+class DRS_MSG_ADDENTRYREQ_V3(NDRSTRUCT):
+    structure = (
+        ('EntInfList', ENTINFLIST),
+        ('pClientCreds', PDRS_SecBufferDesc),
+    )
+
+
+# 4.1.1.1.1 DRS_MSG_ADDENTRYREQ
+class DRS_MSG_ADDENTRYREQ(NDRUNION):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_MSG_ADDENTRYREQ_V1),
+        2: ('V2', DRS_MSG_ADDENTRYREQ_V2),
+        3: ('V3', DRS_MSG_ADDENTRYREQ_V3),
+    }
+
 ################################################################################
 # RPC CALLS
 ################################################################################
@@ -1555,6 +1560,7 @@ OPNUMS = {
     3: (DRSGetNCChanges, DRSGetNCChangesResponse),
     12: (DRSCrackNames, DRSCrackNamesResponse),
     16: (DRSDomainControllerInfo, DRSDomainControllerInfoResponse),
+    17: (DRSAddEntry, DRSAddEntryResponse),
 }
 
 
