@@ -652,6 +652,7 @@ class USN_VECTOR(NDRSTRUCT):
         ('usnHighPropUpdate', USN),
     )
 
+
 # 5.43 DRS_SecBuffer
 class DRS_SecBuffer(NDRSTRUCT):
     structure = (
@@ -1549,6 +1550,7 @@ class DRSAddEntryResponse(NDRCALL):
         ('pmsgOut', DRS_MSG_DCINFOREPLY),
         ('ErrorCode', DWORD),
     )
+# TODO : this is a dummy structure that needs fixing
 
 
 ################################################################################
@@ -1611,6 +1613,24 @@ def hDRSCrackNames(dce, hDrs, flags, formatOffered, formatDesired, rpNames=()):
         record['Data'] = checkNullString(name)
         request['pmsgIn']['V1']['rpNames'].append(record)
 
+    return dce.request(request)
+
+
+def hDRSAddEntry(dce, hDrs, dwInVersion, pmsgIn):
+    request = DRSAddEntry()
+    request['hDrs'] = hDrs
+    request['dwInVersion'] = dwInVersion
+    if dwInVersion == 1:
+        request['pmsgIn']['tag'] = 1
+        request['pmsgIn']['pObject'] = pmsgIn['pObject']
+        request['pmsgIn']['AttrBlock'] = pmsgIn['AttrBlock']
+    elif dwInVersion == 2:
+        request['pmsgIn']['tag'] = 2
+        request['pmsgIn']['EntInfList'] = pmsgIn['EntInfList']
+    elif dwInVersion == 3:
+        request['pmsgIn']['tag'] = 3
+        request['pmsgIn']['EntInfList'] = pmsgIn['EntInfList']
+        request['pmsgIn']['pClientCreds'] = pmsgIn['pClientCreds']
     return dce.request(request)
 
 
