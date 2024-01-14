@@ -1477,9 +1477,9 @@ class DRS_MSG_REPADD(NDRUNION):
         ('tag', DWORD),
     )
     union = {
-        1: ('V1', DRS_MSG_ADDENTRYREQ_V1),
-        2: ('V2', DRS_MSG_ADDENTRYREQ_V2),
-        3: ('V3', DRS_MSG_ADDENTRYREQ_V3),
+        1: ('V1', DRS_MSG_REPADD_V1),
+        2: ('V2', DRS_MSG_REPADD_V2),
+        3: ('V3', DRS_MSG_REPADD_V3),
     }
 
 
@@ -1727,7 +1727,7 @@ def hDRSReplicaAdd(dce, hDrs, dwVersion, pmsgAdd):
     request = DRSReplicaAdd()
     request['hDrs'] = hDrs
     request['dwVersion'] = dwVersion
-    request['pmsgAdd'] = dwVersion
+    request['pmsgAdd'] = pmsgAdd
 
 
 def deriveKey(baseKey):
