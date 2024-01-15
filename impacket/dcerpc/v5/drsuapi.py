@@ -1739,38 +1739,6 @@ def hDRSCrackNames(dce, hDrs, flags, formatOffered, formatDesired, rpNames=()):
     return dce.request(request)
 
 
-def hDRSAddEntry(dce, hDrs, dwInVersion, pmsgIn):
-    request = DRSAddEntry()
-    request['hDrs'] = hDrs
-    request['dwInVersion'] = dwInVersion
-    if dwInVersion == 1:
-        request['pmsgIn']['tag'] = 1
-        request['pmsgIn']['pObject'] = pmsgIn['pObject']
-        request['pmsgIn']['AttrBlock'] = pmsgIn['AttrBlock']
-    elif dwInVersion == 2:
-        request['pmsgIn']['tag'] = 2
-        request['pmsgIn']['EntInfList'] = pmsgIn['EntInfList']
-    elif dwInVersion == 3:
-        request['pmsgIn']['tag'] = 3
-        request['pmsgIn']['EntInfList'] = pmsgIn['EntInfList']
-        request['pmsgIn']['pClientCreds'] = pmsgIn['pClientCreds']
-    return dce.request(request)
-
-
-def hDRSReplicaAdd(dce, hDrs, dwVersion, pmsgAdd):
-    request = DRSReplicaAdd()
-    request['hDrs'] = hDrs
-    request['dwVersion'] = dwVersion
-    request['pmsgAdd'] = pmsgAdd
-
-
-def hDRSReplicaDel(dce, hDrs, dwVersion, pmsgDel):
-    request = DRSReplicaDel()
-    request['hDrs'] = hDrs
-    request['dwVersion'] = dwVersion
-    request['pmsgDel'] = pmsgDel
-
-
 def deriveKey(baseKey):
     # 2.2.11.1.3 Deriving Key1 and Key2 from a Little-Endian, Unsigned Integer Key
     # Let I be the little-endian, unsigned integer.
