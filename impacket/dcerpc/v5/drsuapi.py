@@ -1660,6 +1660,7 @@ class DRSAddEntryResponse(NDRCALL):
 
 # 4.1.19 IDL_DRSReplicaAdd (Opnum 5)
 class DRSReplicaAdd(NDRCALL):
+    opnum = 5
     structure = (
         ('hDrs', DRS_HANDLE),
         ('dwVersion', DWORD),
@@ -1669,6 +1670,7 @@ class DRSReplicaAdd(NDRCALL):
 
 # 4.1.20 IDL_DRSReplicaDel (Opnum 6)
 class DRSReplicaDel(NDRCALL):
+    opnum = 6
     structure = (
         ('hDrs', DRS_HANDLE),
         ('dwVersion', DWORD),
