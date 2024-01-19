@@ -668,7 +668,7 @@ class DRS_SecBuffer_ARRAY(NDRUniConformantArray):
 
 class PDRS_SecBuffer_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', DRS_SecBuffer_ARRAY)
+        ('Data', DRS_SecBuffer_ARRAY),
     )
 
 
@@ -677,7 +677,7 @@ class DRS_SecBufferDesc(NDRSTRUCT):
     structure = (
         ('ulVersion', ULONG),
         ('cBuffers', ULONG),
-        ('Buffers', PDRS_SecBuffer_ARRAY)
+        ('Buffers', PDRS_SecBuffer_ARRAY),
     )
 
 
