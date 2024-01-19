@@ -1676,6 +1676,12 @@ class DRSReplicaAdd(NDRCALL):
     )
 
 
+class DRSReplicaAddResponse(NDRCALL):
+    structure = (
+        ('ErrorCode', DWORD),
+    )
+
+
 # 4.1.20 IDL_DRSReplicaDel (Opnum 6)
 class DRSReplicaDel(NDRCALL):
     opnum = 6
@@ -1686,6 +1692,10 @@ class DRSReplicaDel(NDRCALL):
     )
 
 
+class DRSReplicaDelResponse(DRSReplicaAddResponse):
+    pass
+
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
@@ -1693,6 +1703,8 @@ OPNUMS = {
     0: (DRSBind, DRSBindResponse),
     1: (DRSUnbind, DRSUnbindResponse),
     3: (DRSGetNCChanges, DRSGetNCChangesResponse),
+    5: (DRSReplicaAdd, DRSReplicaAddResponse),
+    6: (DRSReplicaDel, DRSReplicaDelResponse),
     12: (DRSCrackNames, DRSCrackNamesResponse),
     16: (DRSDomainControllerInfo, DRSDomainControllerInfoResponse),
     17: (DRSAddEntry, DRSAddEntryResponse),
