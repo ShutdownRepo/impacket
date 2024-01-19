@@ -31,10 +31,9 @@ import six
 from six import PY2
 
 from impacket import LOG
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, \
-    NDRUSHORT, NDRULONG
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, NDRUniFixedArray
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, PCHAR, UCHAR, ULONGLONG, CHAR, LPCSTR
+    LARGE_INTEGER, PCHAR, ULONGLONG, LPCSTR
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -688,11 +687,18 @@ class PDRS_SecBufferDesc(NDRPOINTER):
     )
 
 
+class UCHAR_FIXED_84_ARRAY(NDRUniFixedArray):
+    def __init__(self, data=b"\x00" * 84, isNDR64=False):
+        super().__init__(data=data, isNDR64=isNDR64)
+
+    def getDataLen(self, data, offset=0):
+        return 84
+
+
 # 5.165 REPLTIMES
 class REPLTIMES(NDRSTRUCT):
     structure = (
-        ('rgTimes', UCHAR),  # this should be a byte array of length 84. We should probably do line below or set ['rgTime'] = bytearray(84)
-        # ('rgTimes', '84s=b""'),
+        ('rgTimes', UCHAR_FIXED_84_ARRAY),
     )
 
 
