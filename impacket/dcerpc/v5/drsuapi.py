@@ -1666,7 +1666,7 @@ class DRSReplicaAdd(NDRCALL):
     structure = (
         ('hDrs', DRS_HANDLE),
         ('dwVersion', DWORD),
-        ('pmsgAdd', PDRS_MSG_REPADD),
+        ('pmsgAdd', DRS_MSG_REPADD),
     )
 
 
