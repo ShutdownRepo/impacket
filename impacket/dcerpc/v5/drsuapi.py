@@ -31,9 +31,10 @@ import six
 from six import PY2
 
 from impacket import LOG
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, \
+    NDRUSHORT, NDRULONG
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, PCHAR, UCHAR, ULONGLONG
+    LARGE_INTEGER, PCHAR, UCHAR, ULONGLONG, CHAR, LPCSTR
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -690,7 +691,8 @@ class PDRS_SecBufferDesc(NDRPOINTER):
 # 5.165 REPLTIMES
 class REPLTIMES(NDRSTRUCT):
     structure = (
-        ('rgTimes', UCHAR),
+        ('rgTimes', UCHAR),  # this should be a byte array of length 84. We should probably do line below or set ['rgTime'] = bytearray(84)
+        # ('rgTimes', '84s=b""'),
     )
 
 
@@ -1439,7 +1441,7 @@ class DRS_MSG_ADDENTRYREQ(NDRUNION):
 class DRS_MSG_REPADD_V1(NDRSTRUCT):
     structure = (
         ('pNC', PDSNAME),
-        ('pszDsaSrc', PCHAR),  # don't know if it's supposed to be PCHAR or LPSTR
+        ('pszDsaSrc', LPCSTR),
         ('rtSchedule', REPLTIMES),
         ('ulOptions', ULONG),
     )
@@ -1451,7 +1453,7 @@ class DRS_MSG_REPADD_V2(NDRSTRUCT):
         ('pNC', PDSNAME),
         ('pSourceDsaDN', PDSNAME),
         ('pTransportDN', PDSNAME),
-        ('pszSourceDsaAddress', PCHAR),
+        ('pszSourceDsaAddress', LPCSTR),
         ('rtSchedule', REPLTIMES),
         ('ulOptions', ULONG),
     )
@@ -1463,7 +1465,7 @@ class DRS_MSG_REPADD_V3(NDRSTRUCT):
         ('pNC', PDSNAME),
         ('pSourceDsaDN', PDSNAME),
         ('pTransportDN', PDSNAME),
-        ('pszSourceDsaAddress', PCHAR),
+        ('pszSourceDsaAddress', LPCSTR),
         ('rtSchedule', REPLTIMES),
         ('ulOptions', ULONG),
         ('correlationID', GUID),
