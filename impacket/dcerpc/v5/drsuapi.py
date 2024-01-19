@@ -1501,7 +1501,7 @@ class PDRS_MSG_REPADD(NDRPOINTER):
 class DRS_MSG_REPDEL_V1(NDRSTRUCT):
     structure = (
         ('pNC', PDSNAME),
-        ('pszDsaSrc', PCHAR),
+        ('pszDsaSrc', LPCSTR),
         ('ulOptions', ULONG),
     )
 
@@ -1688,7 +1688,7 @@ class DRSReplicaDel(NDRCALL):
     structure = (
         ('hDrs', DRS_HANDLE),
         ('dwVersion', DWORD),
-        ('pmsgDel', PDRS_MSG_REPDEL),
+        ('pmsgDel', DRS_MSG_REPDEL),
     )
 
 
