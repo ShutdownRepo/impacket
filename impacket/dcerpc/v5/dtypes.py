@@ -481,6 +481,9 @@ class SID(Structure):
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
 
+class ULONG_ARRAY(NDRUniConformantArray):
+    item = ULONG
+
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 1
     align64 = 1
