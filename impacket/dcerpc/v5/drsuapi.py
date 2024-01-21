@@ -33,7 +33,7 @@ from six import PY2
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, NDRUniFixedArray
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, PCHAR, ULONGLONG, LPCSTR
+    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -1491,10 +1491,117 @@ class DRS_MSG_REPADD(NDRUNION):
     }
 
 
+# 4.1.1.1.10 DIRERR_DRS_WIRE_V1
+class DIRERR_DRS_WIRE_V1(NDRUNION):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        # 1: ('AtrErr', ATRERR_DRS_WIRE_V1),
+        # 2: ('NamErr', NAMERR_DRS_WIRE_V1),
+        # 3: ('RefErr', REFERR_DRS_WIRE_V1),
+        # 4: ('SecErr', SECERR_DRS_WIRE_V1),
+        # 5: ('SvcErr', SVCERR_DRS_WIRE_V1),
+        # 6: ('UpdErr', UPDERR_DRS_WIRE_V1),
+        # 7: ('SysErr', SYSERR_DRS_WIRE_V1),
+    }
+
+
+class PDIRERR_DRS_WIRE_V1(NDRPOINTER):
+    referent = (
+        ('Data', DIRERR_DRS_WIRE_V1),
+    )
+
+
+# 4.1.1.1.24 DRS_ERROR_DATA_V1
+class DRS_ERROR_DATA_V1(NDRSTRUCT):
+    structure = (
+        ('dwRepError', DWORD),
+        ('errCode', DWORD),
+        ('pErrInfo', PDIRERR_DRS_WIRE_V1)
+    )
+
+
+# 4.1.1.1.23 DRS_ERROR_DATA
+class DRS_ERROR_DATA(NDRSTRUCT):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_ERROR_DATA_V1),
+    }
+
+
+class PDRS_ERROR_DATA(NDRPOINTER):
+    referent = (
+        ('Data', DRS_ERROR_DATA),
+    )
+
 class PDRS_MSG_REPADD(NDRPOINTER):
     referent = (
         ('Data', DRS_MSG_REPADD),
     )
+
+# 4.1.1.1.9 ADDENTRY_REPLY_INFO
+class ADDENTRY_REPLY_INFO(NDRSTRUCT):
+    structure = (
+        ('objGuid', GUID),
+        ('objSid', NT4SID),
+    )
+
+
+class PADDENTRY_REPLY_INFO(NDRPOINTER):
+    referent = (
+        ('Data', ADDENTRY_REPLY_INFO),
+    )
+
+
+# 4.1.1.1.6 DRS_MSG_ADDENTRYREPLY_V1
+class DRS_MSG_ADDENTRYREPLY_V1(NDRSTRUCT):
+    structure = (
+        ('Guid', GUID),
+        ('Sid', NT4SID),
+        ('errCode', DWORD),
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('problem', USHORT),
+    )
+
+
+# 4.1.1.1.7 DRS_MSG_ADDENTRYREPLY_V2
+class DRS_MSG_ADDENTRYREPLY_V2(NDRSTRUCT):
+    structure = (
+        ('pErrorObject', PDSNAME),
+        ('errCode', DWORD),
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('problem', USHORT),
+        ('cObjectsAdded', ULONG_ARRAY),
+        ('infoList', PADDENTRY_REPLY_INFO),
+    )
+
+# 4.1.1.1.8 DRS_MSG_ADDENTRYREPLY_V3
+class DRS_MSG_ADDENTRYREPLY_V3(NDRSTRUCT):
+    structure = (
+        ('pErrorObject', PDSNAME),
+        ('dwErrVer', DWORD),
+        ('pErrData', PDRS_ERROR_DATA),
+        ('cObjectsAdded', ULONG_ARRAY),
+        ('infoList', PADDENTRY_REPLY_INFO),
+    )
+
+# 4.1.1.1.5 DRS_MSG_ADDENTRYREQ
+class DRS_MSG_ADDENTRYREPLY(NDRSTRUCT):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_MSG_ADDENTRYREPLY_V1),
+        2: ('V2', DRS_MSG_ADDENTRYREPLY_V2),
+        3: ('V3', DRS_MSG_ADDENTRYREPLY_V3),
+    }
 
 
 # 4.1.20.1.2 DRS_MSG_REPDEL_V1
@@ -1659,11 +1766,10 @@ class DRSAddEntry(NDRCALL):
 
 class DRSAddEntryResponse(NDRCALL):
     structure = (
-        ('pdwOutVersion', DWORD),
-        ('pmsgOut', DRS_MSG_DCINFOREPLY),
+        ('pdwOutVersion', LPDWORD),
+        ('pmsgOut', DRS_MSG_ADDENTRYREPLY),
         ('ErrorCode', DWORD),
     )
-# TODO : this is a dummy structure that needs fixing
 
 
 # 4.1.19 IDL_DRSReplicaAdd (Opnum 5)
