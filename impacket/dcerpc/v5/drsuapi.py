@@ -33,7 +33,7 @@ from six import PY2
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, NDRUniFixedArray
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY
+    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY, UCHAR, PRPC_UNICODE_STRING
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -1491,19 +1491,153 @@ class DRS_MSG_REPADD(NDRUNION):
     }
 
 
+# 4.1.1.1.13 INTFORMPROB_DRS_WIRE_V1
+class INTFORMPROB_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('problem', USHORT),
+        ('type', ATTRTYP),
+        ('valReturned', BOOL),
+        ('Val', ATTRVAL),
+    )
+
+# 4.1.1.1.12 PROBLEMLIST_DRS_WIRE_V1
+class PROBLEMLIST_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('pNextProblem', NDRPOINTER),
+        ('intprob', INTFORMPROB_DRS_WIRE_V1),
+    )
+
+    def fromString(self, data, soFar=0):
+        # Here we're changing the struct so we can represent a linked list with NDR
+        self.fields['pNextProblem'] = PROBLEMLIST_DRS_WIRE_V1(isNDR64=self._isNDR64)
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        return retVal
+
+# 4.1.1.1.11 ATRERR_DRS_WIRE_V1
+class ATRERR_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('pObject', PDSNAME),
+        ('count', ULONG),
+        ('FirstProblem', PROBLEMLIST_DRS_WIRE_V1),
+    )
+
+# 4.1.1.1.14 NAMERR_DRS_WIRE_V1
+class NAMERR_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('problem', USHORT),
+        ('pMatched', PDSNAME),
+    )
+
+
+# 4.1.1.1.16 NAMERESOP_DRS_WIRE_V1
+class NAMERESOP_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('nameRes', UCHAR),
+        ('unusedPad', UCHAR),
+        ('nextRDN', USHORT),
+    )
+
+
+# 4.1.1.1.17 DSA_ADDRESS_LIST_DRS_WIRE_V1
+class DSA_ADDRESS_LIST_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('pNextAddress', NDRPOINTER),
+        ('pAddress', PRPC_UNICODE_STRING),
+    )
+
+    def fromString(self, data, soFar=0):
+        # Here we're changing the struct so we can represent a linked list with NDR
+        self.fields['pNextAddress'] = DSA_ADDRESS_LIST_DRS_WIRE_V1(isNDR64=self._isNDR64)
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        return retVal
+
+class PDSA_ADDRESS_LIST_DRS_WIRE_V1(NDRPOINTER):
+    referent = (
+        ('Data', DSA_ADDRESS_LIST_DRS_WIRE_V1),
+    )
+
+
+# 4.1.1.1.18 CONTREF_DRS_WIRE_V1
+class CONTREF_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('pTarget', PDSNAME),
+        ('OpState', NAMERESOP_DRS_WIRE_V1),
+        ('aliasRDN', USHORT),
+        ('RDNsInternal', USHORT),
+        ('refType', USHORT),
+        ('count', USHORT),
+        ('pDAL', PDSA_ADDRESS_LIST_DRS_WIRE_V1),
+        ('pNextContRef', NDRPOINTER),
+        ('bNewChoice', BOOL),
+        ('choice', UCHAR),
+    )
+
+    def fromString(self, data, soFar=0):
+        # Here we're changing the struct so we can represent a linked list with NDR
+        self.fields['pNextContRef'] = CONTREF_DRS_WIRE_V1(isNDR64=self._isNDR64)
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        return retVal
+
+
+# 4.1.1.1.15 REFERR_DRS_WIRE_V1
+class REFERR_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('Refer', CONTREF_DRS_WIRE_V1),
+    )
+
+
+# this "metaclass" is shared by a few DRS error structures
+class _ERR_DRS_WIRE_V1(NDRSTRUCT):
+    structure = (
+        ('dsid', DWORD),
+        ('extendedErr', DWORD),
+        ('extendedData', DWORD),
+        ('problem', USHORT),
+    )
+
+
+# 4.1.1.1.19 SECERR_DRS_WIRE_V1
+class SECERR_DRS_WIRE_V1(_ERR_DRS_WIRE_V1):
+    pass
+
+
+# 4.1.1.1.20 SVCERR_DRS_WIRE_V1
+class SVCERR_DRS_WIRE_V1(_ERR_DRS_WIRE_V1):
+    pass
+
+
+# 4.1.1.1.21 UPDERR_DRS_WIRE_V1
+class UPDERR_DRS_WIRE_V1(_ERR_DRS_WIRE_V1):
+    pass
+
+
+# 4.1.1.1.22 SYSERR_DRS_WIRE_V1
+class SYSERR_DRS_WIRE_V1(_ERR_DRS_WIRE_V1):
+    pass
+
+
 # 4.1.1.1.10 DIRERR_DRS_WIRE_V1
 class DIRERR_DRS_WIRE_V1(NDRUNION):
     commonHdr = (
         ('tag', DWORD),
     )
     union = {
-        # 1: ('AtrErr', ATRERR_DRS_WIRE_V1),
-        # 2: ('NamErr', NAMERR_DRS_WIRE_V1),
-        # 3: ('RefErr', REFERR_DRS_WIRE_V1),
-        # 4: ('SecErr', SECERR_DRS_WIRE_V1),
-        # 5: ('SvcErr', SVCERR_DRS_WIRE_V1),
-        # 6: ('UpdErr', UPDERR_DRS_WIRE_V1),
-        # 7: ('SysErr', SYSERR_DRS_WIRE_V1),
+        1: ('AtrErr', ATRERR_DRS_WIRE_V1),
+        2: ('NamErr', NAMERR_DRS_WIRE_V1),
+        3: ('RefErr', REFERR_DRS_WIRE_V1),
+        4: ('SecErr', SECERR_DRS_WIRE_V1),
+        5: ('SvcErr', SVCERR_DRS_WIRE_V1),
+        6: ('UpdErr', UPDERR_DRS_WIRE_V1),
+        7: ('SysErr', SYSERR_DRS_WIRE_V1),
     }
 
 
