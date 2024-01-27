@@ -33,7 +33,7 @@ from six import PY2
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, NDRUniFixedArray
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY, UCHAR, PRPC_UNICODE_STRING
+    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY, UCHAR, PRPC_UNICODE_STRING, FILETIME
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -1762,6 +1762,40 @@ class PDRS_MSG_REPDEL(NDRPOINTER):
         ('Data', DRS_MSG_REPDEL),
     )
 
+
+# found no documentation on this except Mimikatz definition @ https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/lsadump/kuhl_m_lsadump_dc.h#L57-L64
+class DS_REPL_ATTRTYP_META_DATA(NDRSTRUCT):
+    structure = (
+        ('attrType', ATTRTYP),
+        ('dwVersion', DWORD),
+        ('ftimeLastOriginatingChange', FILETIME),
+        ('uuidLastOriginatingDsaInvocationID', UUID),
+        ('usnOriginatingChange', USN),
+        ('usnLocalChange', USN),
+    )
+
+
+class DS_REPL_ATTRTYP_META_DATA_ARRAY(NDRUniConformantArray):
+    item = DS_REPL_ATTRTYP_META_DATA
+
+
+# 4.1.13.1.14 DS_REPL_OBJ_META_DATA
+class DS_REPL_OBJ_META_DATA(NDRSTRUCT):
+    structure = (
+        ('cNumEntries', DWORD),
+        ('dwReserved', DWORD),
+        # ('rgMetaData', DS_REPL_ATTRTYP_META_DATA_ARRAY),
+        ('rgMetaData', DS_REPL_ATTRTYP_META_DATA),
+    )
+
+
+# found no documentation on this except Mimikatz definition @ https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/lsadump/kuhl_m_lsadump_dc.h#L72-L76
+class DS_REPL_OBJ_META_DATA_BLOB(NDRSTRUCT):
+    structure = (
+        ('dwVersion', DWORD),
+        ('dwReserved', DWORD),
+        ('ctr', DS_REPL_OBJ_META_DATA),
+    )
 
 ################################################################################
 # RPC CALLS
