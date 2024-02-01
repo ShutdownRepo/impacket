@@ -1967,7 +1967,9 @@ class DRSReplicaDel(NDRCALL):
 
 
 class DRSReplicaDelResponse(DRSReplicaAddResponse):
-    pass
+    structure = (
+        ('ErrorCode', DWORD),
+    )
 
 
 ################################################################################
