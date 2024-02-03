@@ -74,6 +74,77 @@ class DCERPCSessionError(DCERPCException):
 ################################################################################
 # CONSTANTS
 ################################################################################
+class NDRENUMERR(NDRENUM):
+    align = 4
+    align64 = 4
+    structure = (
+        ('Data', '<L'),
+    )
+
+    def dump(self, msg=None, indent=0):
+        if msg is None:
+            msg = self.__class__.__name__
+        if msg != '':
+            print(msg, end=' ')
+
+        try:
+            print(" %s" % self.enumItems(self.fields['Data']).name, end=' ')
+        except ValueError:
+            print(" %d" % self.fields['Data'])
+
+
+# 4.1.1.1.25 DIRERR Codes
+class DIRERR(NDRENUMERR):
+    class enumItems(Enum):
+        attributeError = 0x00000001  # Attribute error.
+        nameError = 0x00000002  # Name resolution error.
+        referralError = 0x00000003  # Referral error.
+        securityError = 0x00000004  # Security error.
+        serviceError = 0x00000005  # Service error.
+        updError = 0x00000006  # Update error.
+        systemError = 0x00000007  # System error.
+
+
+# 4.1.1.1.26 PROBLEM Error Codes
+class PROBLEM(NDRENUMERR):
+    class enumItems(Enum):
+        ENOMEM = 0x0000000C  # Out of memory.
+        EBUSY = 0x00000010  # Too busy to proceed.
+        EINVAL = 0x00000016  # Invalid parameter.
+        ENOSPC = 0x0000001C  # Out of storage.
+        NA_PROBLEM_NO_OBJECT = 0x000007D1  # Parent object not found in the NC replica.
+        PR_PROBLEM_NO_ATTRIBUTE_OR_VAL = 0x000003E9  # Attribute or value not found.
+        PR_PROBLEM_INVALID_ATT_SYNTAX = 0x000003EA  # Invalid attribute syntax.
+        PR_PROBLEM_UNDEFINED_ATT_TYPE = 0x000003EB  # Unknown attribute type.
+        PR_PROBLEM_WRONG_MATCH_OPER = 0x000003EC  # Incorrect matching operation (only applies to match operators in LDAP filters).
+        PR_PROBLEM_CONSTRAINT_ATT_TYPE = 0x000003ED  # Attribute value violated a schema constraint.
+        PR_PROBLEM_ATT_OR_VALUE_EXISTS = 0x000003EE  # Attribute or value already exists (multiple values specified for a single-valued attribute OR duplicate value specified for a multi-valued attribute)/
+        SE_PROBLEM_INAPPROPRIATE_AUTH = 0x00000FA1  # Inappropriate authentication method.
+        SE_PROBLEM_INVALID_CREDENTS = 0x00000FA2  # Invalid user name or password.
+        SE_PROBLEM_INSUFF_ACCESS_RIGHTS = 0x00000FA3  # Access denied.
+        SE_PROBLEM_INVALID_SIGNATURE = 0x00000FA4  # Invalid signature.
+        SE_PROBLEM_PROTECTION_REQUIRED = 0x00000FA5  # Encrypted connection required.
+        SE_PROBLEM_NO_INFORMATION = 0x00000FA6  # Insufficient permissions to generate a referral.
+        SV_PROBLEM_BUSY = 0x00001389  # Directory service is busy.
+        SV_PROBLEM_UNAVAILABLE = 0x0000138A  # Directory service is unavailable.
+        SV_PROBLEM_WILL_NOT_PERFORM = 0x0000138B  # The requested operation will not be performed.
+        SV_PROBLEM_CHAINING_REQUIRED = 0x0000138C  # Chaining is required to perform the operation.
+        SV_PROBLEM_UNABLE_TO_PROCEED = 0x0000138D  # Directory service is unable to proceed with the requested operation.
+        SV_PROBLEM_INVALID_REFERENCE = 0x0000138E  # Invalid crossRef object.
+        SV_PROBLEM_TIME_EXCEEDED = 0x0000138F  # Time limit exceeded while processing the operation.
+        SV_PROBLEM_ADMIN_LIMIT_EXCEEDED = 0x00001390  # Administrative limit exceeded while processing the operation.
+        SV_PROBLEM_LOOP_DETECTED = 0x00001391  # Not in use.
+        SV_PROBLEM_UNAVAIL_EXTENSION = 0x00001392  # The requested extended operation is not available.
+        SV_PROBLEM_OUT_OF_SCOPE = 0x00001393  # Not in use.
+        SV_PROBLEM_DIR_ERROR = 0x00001394  # Generic directory service error.
+        UP_PROBLEM_NAME_VIOLATION = 0x00001771  # Naming violation.
+        UP_PROBLEM_OBJ_CLASS_VIOLATION = 0x00001772  # Object class violation.
+        UP_PROBLEM_CANT_ON_NON_LEAF = 0x00001773  # The operation cannot be performed on an object with child objects.
+        UP_PROBLEM_CANT_ON_RDN = 0x00001774  # The operation cannot be performed on an RDN attribute.
+        UP_PROBLEM_ENTRY_EXISTS = 0x00001775  # Object already exists.
+        UP_PROBLEM_AFFECTS_MULT_DSAS = 0x00001776  # The operation affects multiple DCs.
+        UP_PROBLEM_CANT_MOD_OBJ_CLASS = 0x00001777  # The objectClass attribute cannot be modified in this way.
+
 # 4.1.10.2.17 EXOP_ERR Codes
 class EXOP_ERR(NDRENUM):
     align = 4
@@ -1657,7 +1728,7 @@ class DRS_ERROR_DATA_V1(NDRSTRUCT):
 
 
 # 4.1.1.1.23 DRS_ERROR_DATA
-class DRS_ERROR_DATA(NDRSTRUCT):
+class DRS_ERROR_DATA(NDRUNION):
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1683,10 +1754,13 @@ class ADDENTRY_REPLY_INFO(NDRSTRUCT):
         ('objSid', NT4SID),
     )
 
+class ADDENTRY_REPLY_INFO_ARRAY(NDRUniConformantArray):
+    item = ADDENTRY_REPLY_INFO
 
-class PADDENTRY_REPLY_INFO(NDRPOINTER):
+
+class PADDENTRY_REPLY_INFO_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', ADDENTRY_REPLY_INFO),
+        ('Data', ADDENTRY_REPLY_INFO_ARRAY),
     )
 
 
@@ -1695,11 +1769,11 @@ class DRS_MSG_ADDENTRYREPLY_V1(NDRSTRUCT):
     structure = (
         ('Guid', GUID),
         ('Sid', NT4SID),
-        ('errCode', DWORD),
+        ('errCode', DIRERR),
         ('dsid', DWORD),
         ('extendedErr', DWORD),
         ('extendedData', DWORD),
-        ('problem', USHORT),
+        ('problem', PROBLEM),
     )
 
 
@@ -1707,14 +1781,15 @@ class DRS_MSG_ADDENTRYREPLY_V1(NDRSTRUCT):
 class DRS_MSG_ADDENTRYREPLY_V2(NDRSTRUCT):
     structure = (
         ('pErrorObject', PDSNAME),
-        ('errCode', DWORD),
+        ('errCode', DIRERR),
         ('dsid', DWORD),
         ('extendedErr', DWORD),
         ('extendedData', DWORD),
-        ('problem', USHORT),
-        ('cObjectsAdded', ULONG_ARRAY),
-        ('infoList', PADDENTRY_REPLY_INFO),
+        ('problem', PROBLEM),
+        ('cObjectsAdded', ULONG),
+        ('infoList', PADDENTRY_REPLY_INFO_ARRAY),
     )
+
 
 # 4.1.1.1.8 DRS_MSG_ADDENTRYREPLY_V3
 class DRS_MSG_ADDENTRYREPLY_V3(NDRSTRUCT):
@@ -1722,12 +1797,13 @@ class DRS_MSG_ADDENTRYREPLY_V3(NDRSTRUCT):
         ('pErrorObject', PDSNAME),
         ('dwErrVer', DWORD),
         ('pErrData', PDRS_ERROR_DATA),
-        ('cObjectsAdded', ULONG_ARRAY),
-        ('infoList', PADDENTRY_REPLY_INFO),
+        ('cObjectsAdded', ULONG),
+        ('infoList', PADDENTRY_REPLY_INFO_ARRAY),
     )
 
+
 # 4.1.1.1.5 DRS_MSG_ADDENTRYREQ
-class DRS_MSG_ADDENTRYREPLY(NDRSTRUCT):
+class DRS_MSG_ADDENTRYREPLY(NDRUNION):
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1934,7 +2010,7 @@ class DRSAddEntry(NDRCALL):
 
 class DRSAddEntryResponse(NDRCALL):
     structure = (
-        ('pdwOutVersion', LPDWORD),
+        ('pdwOutVersion', DWORD),
         ('pmsgOut', DRS_MSG_ADDENTRYREPLY),
         ('ErrorCode', DWORD),
     )
