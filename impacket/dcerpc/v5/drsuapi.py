@@ -31,9 +31,10 @@ import six
 from six import PY2
 
 from impacket import LOG
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, NDRUniFixedArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM, \
+    NDRUniFixedArray, NDRArray
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, \
-    LARGE_INTEGER, ULONGLONG, LPCSTR, LPDWORD, SID, USHORT, ULONG_ARRAY, UCHAR, PRPC_UNICODE_STRING, FILETIME
+    LARGE_INTEGER, ULONGLONG, LPCSTR, USHORT, UCHAR, PRPC_UNICODE_STRING, FILETIME
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -809,8 +810,6 @@ class WCHAR_ARRAY(NDRUniConformantArray):
             return NDR.__getitem__(self, key)
 
 
-
-
 class DSNAME(NDRSTRUCT):
     structure = (
         ('structLen', ULONG),
@@ -842,7 +841,6 @@ class PPDSNAME_ARRAY(NDRPOINTER):
     referent = (
         ('Data', PDSNAME_ARRAY),
     )
-
 
 class ATTRTYP_ARRAY(NDRUniConformantArray):
     item = ATTRTYP
@@ -1017,6 +1015,48 @@ class DRS_MSG_GETCHGREQ(NDRUNION):
         8: ('V8', DRS_MSG_GETCHGREQ_V8),
         10: ('V10', DRS_MSG_GETCHGREQ_V10),
     }
+
+
+# WCHAR ARRAY that's neither NDRUniConformantArray nor NDRUniConformantVaryingArray. This can most probably be better coded...
+class WCHAR_ARRAY_BINARY(NDRArray):
+    item = 'H'
+
+    structure = (
+        # ('MaximumCount', '<L=len(Data)'),
+        ('Data', '*MaximumCount'),
+    )
+
+    structure64 = (
+        # ('MaximumCount', '<Q=len(Data)'),
+        ('Data', '*MaximumCount'),
+    )
+
+    def __setitem__(self, key, value):
+        self.fields['MaximumCount'] = None
+        self.data = None  # force recompute
+        return NDRUniConformantArray.__setitem__(self, key, [ord(c) for c in value])
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            try:
+                return ''.join([six.unichr(i) for i in self.fields[key]])
+            except ValueError as e:
+                LOG.debug("ValueError Exception", exc_info=True)
+                LOG.error(str(e))
+        else:
+            return NDR.__getitem__(self, key)
+
+
+# 5.16.3.11 Object(DN-Binary)
+class DSNAME_BINARY(DSNAME):
+    structure = (
+        ('structLen', ULONG),
+        ('SidLen', ULONG),
+        ('Guid', GUID),
+        ('Sid', NT4SID),
+        ('NameLen', ULONG),
+        ('StringName', WCHAR_ARRAY_BINARY),
+    )
 
 
 # 5.16 ATTRVAL
