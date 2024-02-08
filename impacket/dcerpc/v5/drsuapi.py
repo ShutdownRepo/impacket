@@ -1558,7 +1558,7 @@ class DRS_MSG_ADDENTRYREQ(NDRUNION):
 class DRS_MSG_REPADD_V1(NDRSTRUCT):
     structure = (
         ('pNC', PDSNAME),
-        ('pszDsaSrc', LPCSTR),
+        ('pszDsaSrc', LPCSTR), # while Samba and Wireshark look for an utf16 string, MS-DRSR says it's utf8. Using UTF16 makes the request fail.
         ('rtSchedule', REPLTIMES),
         ('ulOptions', ULONG),
     )
