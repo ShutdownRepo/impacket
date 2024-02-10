@@ -2095,6 +2095,7 @@ OPNUMS = {
     0: (DRSBind, DRSBindResponse),
     1: (DRSUnbind, DRSUnbindResponse),
     3: (DRSGetNCChanges, DRSGetNCChangesResponse),
+    # 4: (DRSUpdateRefs, DRSUpdateRefsResponse),
     5: (DRSReplicaAdd, DRSReplicaAddResponse),
     6: (DRSReplicaDel, DRSReplicaDelResponse),
     12: (DRSCrackNames, DRSCrackNamesResponse),
