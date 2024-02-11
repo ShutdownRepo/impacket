@@ -2056,6 +2056,61 @@ class DRSAddEntryResponse(NDRCALL):
     )
 
 
+# 4.1.26.1.2 DRS_MSG_UPDREFS_V1
+class DRS_MSG_UPDREFS_V1(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pszDsaDest', LPCSTR),
+        ('uuidDsaObjDest', UUID),
+        ('ulOptions', ULONG),
+    )
+
+
+# 4.1.26.1.3 DRS_MSG_UPDREFS_V2
+class DRS_MSG_UPDREFS_V2(NDRSTRUCT):
+    structure = (
+        ('pNC', PDSNAME),
+        ('pszDsaDest', LPCSTR),
+        ('uuidDsaObjDest', UUID),
+        ('ulOptions', ULONG),
+        ('correlationID', GUID),
+        ('pReservedBuffer', PVAR_SIZE_BUFFER_WITH_VERSION),
+    )
+
+
+# 4.1.26.1.1 DRS_MSG_UPDREFS
+class DRS_MSG_UPDREFS(NDRUNION):
+    commonHdr = (
+        ('tag', DWORD),
+    )
+    union = {
+        1: ('V1', DRS_MSG_UPDREFS_V1),
+        2: ('V2', DRS_MSG_UPDREFS_V2),
+    }
+
+
+class PDRS_MSG_UPDREFS(NDRPOINTER):
+    referent = (
+        ('Data', DRS_MSG_UPDREFS),
+    )
+
+
+# 4.1.26 IDL_DRSUpdateRefs (Opnum 4)
+class DRSUpdateRefs(NDRCALL):
+    opnum = 4
+    structure = (
+        ('hDrs', DRS_HANDLE),
+        ('dwVersion', DWORD),
+        ('pmsgUpdRefs', PDRS_MSG_UPDREFS),
+    )
+
+
+class DRSUpdateRefsResponse(NDRCALL):
+    structure = (
+        ('ErrorCode', DWORD),
+    )
+
+
 # 4.1.19 IDL_DRSReplicaAdd (Opnum 5)
 class DRSReplicaAdd(NDRCALL):
     opnum = 5
@@ -2095,7 +2150,7 @@ OPNUMS = {
     0: (DRSBind, DRSBindResponse),
     1: (DRSUnbind, DRSUnbindResponse),
     3: (DRSGetNCChanges, DRSGetNCChangesResponse),
-    # 4: (DRSUpdateRefs, DRSUpdateRefsResponse),
+    4: (DRSUpdateRefs, DRSUpdateRefsResponse),
     5: (DRSReplicaAdd, DRSReplicaAddResponse),
     6: (DRSReplicaDel, DRSReplicaDelResponse),
     12: (DRSCrackNames, DRSCrackNamesResponse),
