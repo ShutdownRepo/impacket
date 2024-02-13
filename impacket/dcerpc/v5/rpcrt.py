@@ -26,6 +26,7 @@ from binascii import unhexlify
 from Cryptodome.Cipher import ARC4
 
 from impacket import ntlm, LOG
+from impacket.dcerpc.v5.enum import Enum
 from impacket.structure import Structure,pack,unpack
 from impacket.krb5 import kerberosv5, gssapi
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
@@ -108,6 +109,15 @@ RPC_C_AUTHN_GSS_SCHANNEL  = 0x0E
 RPC_C_AUTHN_GSS_KERBEROS  = 0x10
 RPC_C_AUTHN_NETLOGON      = 0x44
 RPC_C_AUTHN_DEFAULT       = 0xFF
+
+class AUTH_TYPES(Enum):
+    RPC_C_AUTHN_NONE = 0x00
+    RPC_C_AUTHN_GSS_NEGOTIATE = 0x09
+    RPC_C_AUTHN_WINNT = 0x0A
+    RPC_C_AUTHN_GSS_SCHANNEL = 0x0E
+    RPC_C_AUTHN_GSS_KERBEROS = 0x10
+    RPC_C_AUTHN_NETLOGON = 0x44
+    RPC_C_AUTHN_DEFAULT = 0xFF
 
 # Auth Levels
 RPC_C_AUTHN_LEVEL_NONE          = 1
