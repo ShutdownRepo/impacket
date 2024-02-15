@@ -443,12 +443,6 @@ class PDRS_EXTENSIONS(NDRPOINTER):
     )
 
 
-class PPDRS_EXTENSIONS(NDRPOINTER):
-    referent = (
-        ('Data', PDRS_EXTENSIONS),
-    )
-
-
 # 5.39 DRS_EXTENSIONS_INT
 class DRS_EXTENSIONS_INT(Structure):
     structure = (
@@ -1970,8 +1964,8 @@ class DRSBind(NDRCALL):
 
 class DRSBindResponse(NDRCALL):
     structure = (
-        ('ppextServer', PPDRS_EXTENSIONS),
-        ('phDrs', PDRS_HANDLE),
+        ('ppextServer', PDRS_EXTENSIONS),
+        ('phDrs', DRS_HANDLE),
         ('ErrorCode', DWORD),
     )
 
