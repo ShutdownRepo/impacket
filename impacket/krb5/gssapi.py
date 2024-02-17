@@ -132,7 +132,8 @@ class GSSAPI_RC4:
         token = self.WRAP()
 
         # Let's pad the data
-        pad = (8 - (len(data) % 8)) & 0x7
+        # pad = (8 - (len(data) % 8)) & 0x7
+        pad = (16 - (len(data) % 16)) & 15
         padStr = b(chr(pad)) * pad
         data += padStr
 
