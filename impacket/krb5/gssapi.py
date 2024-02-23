@@ -226,7 +226,7 @@ class GSSAPI_AES():
         # Let's pad the data
         pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
-        data += padStr.encode()
+        data += padStr
 
         checkSumProfile = self.checkSumProfile()
 
@@ -247,28 +247,26 @@ class GSSAPI_AES():
         result = data[numBytes:] + data[:numBytes]
         return result
         
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True,keyUsage=KG_USAGE_INITIATOR_SEAL,confounder=None):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
         token = self.WRAP()
 
         cipher = self.cipherType()
 
         # Let's pad the data
-        pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
+        pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
         padStr = b'\xFF' * pad
         data += padStr
 
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
-        if direction != 'init':
-            token['Flags'] = 7
-        else:
-            token['Flags'] = 6
+
+        token['Flags'] = 6
         token['EC'] = pad
         token['RRC'] = 0
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
 
-        cipherText = cipher.encrypt(sessionKey, keyUsage,  data + token.getData(), confounder)
+        cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL,  data + token.getData(), None)
         token['RRC'] = rrc
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
@@ -279,24 +277,18 @@ class GSSAPI_AES():
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None,keyUsage=KG_USAGE_ACCEPTOR_SEAL):
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
 
         cipher = self.cipherType()
         token = self.WRAP(authData[len(SEC_TRAILER()):])
 
         rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
-
+ 
         cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
+        plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
 
-        # rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):]
-        # cipherText = data + self.unrotate(rotated, token['RRC'] + token['EC'])
-        print(f"\ncipherText len={len(cipherText)}")
-        for i in cipherText:
-            print(f"{hex(i)},", end="")
-        plainText, confounder = cipher.decrypt(sessionKey, keyUsage,  cipherText)
-
-        return plainText[:-(token['EC']+len(self.WRAP()))], confounder
+        return plainText[:-(token['EC']+len(self.WRAP()))], None
 
 class GSSAPI_AES256(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES256

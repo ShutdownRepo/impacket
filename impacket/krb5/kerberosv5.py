@@ -189,7 +189,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     except KerberosError as e:
         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
             if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey == b'':
-                supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
+                supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
                 r = sendReceive(message, domain, kdcHost)
@@ -439,10 +439,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody['nonce'] = rand.getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (
-                          int(cipher.enctype),
                           int(constants.EncryptionTypes.rc4_hmac.value),
                           int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                          int(constants.EncryptionTypes.des_cbc_md5.value)
+                          int(constants.EncryptionTypes.des_cbc_md5.value),
+                          int(cipher.enctype)
                        )
                 )
 
