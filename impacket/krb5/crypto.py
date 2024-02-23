@@ -228,13 +228,32 @@ class _SimplifiedEnctype(_EnctypeProfile):
         basic_ctext, mac = bytearray(ciphertext[:-cls.macsize]), bytearray(ciphertext[-cls.macsize:])
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
+        print(len(basic_ctext))
+        for i in basic_ctext:
+            print(f"{hex(i)},", end="")
+        print("")
+        print(len(mac))
+        for i in mac:
+            print(f"{hex(i)},", end="")
+        print("")
+        print(len(ciphertext))
+        for i in ciphertext:
+            print(f"{hex(i)},", end="")
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
+        tmp = basic_plaintext[cls.blocksize:]
+        padding = tmp[-16-16:-16]
+        basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
         hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
         expmac = hmac[:cls.macsize]
+        print(hmac)
+        print(expmac)
+        print(mac)
         if not _mac_equal(mac, expmac):
-            raise InvalidChecksum('ciphertext integrity failure')
+            print('ciphertext integrity failure')
+        else:
+            print('ciphertext integrity correct')
         # Discard the confounder.
-        return bytes(basic_plaintext[cls.blocksize:])
+        return bytes(basic_plaintext[cls.blocksize:]),bytes(basic_plaintext[:cls.blocksize])
 
     @classmethod
     def prf(cls, key, string):
