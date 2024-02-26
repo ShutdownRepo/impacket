@@ -343,7 +343,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # application session key), encrypted with the client key
     # (Section 5.4.2)
     try:
-        plainText = cipher.decrypt(key, 3, cipherText)
+        plainText, _ = cipher.decrypt(key, 3, cipherText)
     except InvalidChecksum as e:
         # probably bad password if preauth is disabled
         if preAuth is False:
@@ -459,7 +459,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # Key Usage 8
     # TGS-REP encrypted part (includes application session
     # key), encrypted with the TGS session key (Section 5.4.2)
-    plainText = cipher.decrypt(sessionKey, 8, cipherText)
+    plainText,_ = cipher.decrypt(sessionKey, 8, cipherText)
 
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
@@ -502,7 +502,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     # AP-REP encrypted part (includes application session
     # subkey), encrypted with the application session key
     # (Section 5.5.2)
-    plainText = cipher.decrypt(sessionKey, 12, cipherText)
+    plainText,_ = cipher.decrypt(sessionKey, 12, cipherText)
 
     encAPRepPart = decoder.decode(plainText, asn1Spec = EncAPRepPart())[0]
 
