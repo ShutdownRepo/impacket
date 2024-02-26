@@ -247,15 +247,19 @@ class GSSAPI_AES():
         result = data[numBytes:] + data[:numBytes]
         return result
         
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True,keyUsage=KG_USAGE_INITIATOR_SEAL,confounder=None):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True,keyUsage=KG_USAGE_INITIATOR_SEAL,confounder=None, padding=None):
         token = self.WRAP()
 
         cipher = self.cipherType()
-
-        # Let's pad the data
-        pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
-        padStr = b'\xFF' * pad
-        data += padStr
+        if padding:
+            pad = len(padding)
+            padStr = padding
+            data += padStr
+        else:
+            # Let's pad the data
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+            padStr = b'\xFF' * pad
+            data += padStr
 
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
