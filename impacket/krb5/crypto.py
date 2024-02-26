@@ -228,21 +228,32 @@ class _SimplifiedEnctype(_EnctypeProfile):
         basic_ctext, mac = bytearray(ciphertext[:-cls.macsize]), bytearray(ciphertext[-cls.macsize:])
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
+        print("basic_ctext")
         print(len(basic_ctext))
         for i in basic_ctext:
             print(f"{hex(i)},", end="")
         print("")
+        print("mac")
         print(len(mac))
         for i in mac:
             print(f"{hex(i)},", end="")
         print("")
+        print("ciphertext")
         print(len(ciphertext))
         for i in ciphertext:
             print(f"{hex(i)},", end="")
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
+        print("")
+        print("basic_plaintext")
+        for i in basic_plaintext:
+            print(f"{hex(i)},", end="")
         tmp = basic_plaintext[cls.blocksize:]
         padding = tmp[-16-16:-16]
-        basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
+        print("")
+        print("padding")
+        for i in padding:
+            print(f"{hex(i)},",end="")
+        # basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
         hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
         expmac = hmac[:cls.macsize]
         print(hmac)
