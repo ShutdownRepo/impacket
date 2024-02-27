@@ -39,6 +39,8 @@
 from binascii import unhexlify
 from functools import reduce
 from os import urandom
+import hexdump
+
 # XXX current status:
 # * Done and tested
 #   - AES encryption, checksum, string2key, prf
@@ -213,59 +215,69 @@ class _SimplifiedEnctype(_EnctypeProfile):
     def encrypt(cls, key, keyusage, plaintext, confounder):
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
+        print("in encrypt")
         if confounder is None:
             confounder = get_random_bytes(cls.blocksize)
+        print(f"confounder len={len(confounder)}")
+        hexdump.hexdump(confounder)
+        print(f"cls.padsize = {cls.padsize}")
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
+        print(f"basic_plaintext len={len(basic_plaintext)}")
+        hexdump.hexdump(basic_plaintext)
         hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
-        return cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
+        print(f"hmac len={len(hmac)}")
+        enc = cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
+        print("returning from encrypt")
+        return enc
 
     @classmethod
     def decrypt(cls, key, keyusage, ciphertext):
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
+
+        print("in decrypt")
+        print(f"ciphertext len={len(ciphertext)}")
+        hexdump.hexdump(ciphertext)
+
         if len(ciphertext) < cls.blocksize + cls.macsize:
             raise ValueError('ciphertext too short')
+        print(f"cls.maacsize = {cls.macsize}")
+
         basic_ctext, mac = bytearray(ciphertext[:-cls.macsize]), bytearray(ciphertext[-cls.macsize:])
+        print(f"basic_ctext len={len(basic_ctext)}")
+        hexdump.hexdump(basic_ctext)
+        print(f"mac len={len(mac)}")
+        hexdump.hexdump(mac)
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
-        print("")
-        print("basic_ctext")
-        print(len(basic_ctext))
-        for i in basic_ctext:
-            print(f"{hex(i)},", end="")
-        print("")
-        print("mac")
-        print(len(mac))
-        for i in mac:
-            print(f"{hex(i)},", end="")
-        print("")
-        print("ciphertext")
-        print(len(ciphertext))
-        for i in ciphertext:
-            print(f"{hex(i)},", end="")
+
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
-        print("")
+
         print("basic_plaintext")
-        for i in basic_plaintext:
-            print(f"{hex(i)},", end="")
-        tmp = basic_plaintext[cls.blocksize:]
-        padding = tmp[-16-16:-16]
-        print("")
-        print("padding")
-        for i in padding:
-            print(f"{hex(i)},",end="")
-        print("")
+        hexdump.hexdump(basic_plaintext)
+
+        # tmp = basic_plaintext[cls.blocksize:]
+        # padding = tmp[-16-16:-16]
+        # print("")
+        # print("padding")
+        # for i in padding:
+        #     print(f"{hex(i)},",end="")
+        # print("")
         # basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
+
         hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
         expmac = hmac[:cls.macsize]
-        print(hmac)
-        print(expmac)
-        print(mac)
+        print(f"hmac len={len(hmac)} (computed mac)")
+        hexdump.hexdump(hmac)
+        print(f"expmac len={len(expmac)}")
+        hexdump.hexdump(expmac)
         if not _mac_equal(mac, expmac):
             print('ciphertext integrity failure')
         else:
             print('ciphertext integrity correct')
         # Discard the confounder.
+        print(f"cls.blocksize = {cls.blocksize}")
+        print('returning from decrypt')
         return bytes(basic_plaintext[cls.blocksize:]),bytes(basic_plaintext[:cls.blocksize])
 
     @classmethod

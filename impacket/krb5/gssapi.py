@@ -18,6 +18,8 @@
 import struct
 import random
 import string
+import hexdump
+
 from six import b
 
 from Cryptodome.Hash import HMAC, MD5
@@ -249,19 +251,24 @@ class GSSAPI_AES():
         
     def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True,keyUsage=KG_USAGE_INITIATOR_SEAL,confounder=None, padding=None):
         token = self.WRAP()
-
+        print("in GSS_Wrap")
         cipher = self.cipherType()
         if padding:
             pad = len(padding)
             padStr = padding
             data += padStr
         else:
-            # Let's pad the data
+            #Let's pad the data
             pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
             padStr = b'\xFF' * pad
             data += padStr
 
-        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
+        print(f"pad: {pad}")
+        print(f"cipher.blocksize: {cipher.blocksize}")
+        print(f"len(data) % cipher.blocksize): {len(data) % cipher.blocksize}")
+        print(f"padding")
+        hexdump.hexdump(padding)
+        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
         if direction != 'init':
@@ -272,7 +279,13 @@ class GSSAPI_AES():
         token['RRC'] = 0
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
 
+        print(f"token.getData() len={len(token.getData())}")
+        hexdump.hexdump(token.getData())
+        print(f"data (plaintext to encrypt) len={len(data)}")
+        hexdump.hexdump(data)
         cipherText = cipher.encrypt(sessionKey, keyUsage,  data + token.getData(), confounder)
+        print(f"cipherText len={len(cipherText)}")
+
         token['RRC'] = rrc
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
@@ -295,10 +308,16 @@ class GSSAPI_AES():
 
         # rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):]
         # cipherText = data + self.unrotate(rotated, token['RRC'] + token['EC'])
-        print(f"\ncipherText len={len(cipherText)}")
-        for i in cipherText:
-            print(f"{hex(i)},", end="")
+        print("in GSSAPI_Unwrap")
+        print(f"cipherText dump len={len(cipherText)}")
+        hexdump.hexdump(cipherText)
+        print("decrypting.....")
         plainText, confounder = cipher.decrypt(sessionKey, keyUsage,  cipherText)
+        print("again in GSS_Unwrap")
+        print(f"plaintText before unpadding {len(plainText)}")
+        hexdump.hexdump(plainText)
+        print(f"final plainText after unpadding {len(plainText[:-(token['EC']+len(self.WRAP()))])}")
+        hexdump.hexdump(plainText[:-(token['EC']+len(self.WRAP()))])
 
         return plainText[:-(token['EC']+len(self.WRAP()))], confounder
 
