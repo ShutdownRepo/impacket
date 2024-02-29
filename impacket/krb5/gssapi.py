@@ -253,13 +253,16 @@ class GSSAPI_AES():
         token = self.WRAP()
         print("in GSS_Wrap")
         cipher = self.cipherType()
+        print(f"data len={len(data)}")
+
         if padding:
-            pad = len(padding)
             padStr = padding
+            pad = len(padding)
             data += padStr
+
         else:
             #Let's pad the data
-            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
             padStr = b'\xFF' * pad
             data += padStr
 
@@ -267,7 +270,7 @@ class GSSAPI_AES():
         print(f"cipher.blocksize: {cipher.blocksize}")
         print(f"len(data) % cipher.blocksize): {len(data) % cipher.blocksize}")
         print(f"padding")
-        hexdump.hexdump(padding)
+        hexdump.hexdump(padStr)
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
@@ -285,7 +288,7 @@ class GSSAPI_AES():
         hexdump.hexdump(data)
         cipherText = cipher.encrypt(sessionKey, keyUsage,  data + token.getData(), confounder)
         print(f"cipherText len={len(cipherText)}")
-
+        hexdump.hexdump(cipherText)
         token['RRC'] = rrc
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
@@ -316,6 +319,9 @@ class GSSAPI_AES():
         print("again in GSS_Unwrap")
         print(f"plaintText before unpadding {len(plainText)}")
         hexdump.hexdump(plainText)
+        signedtoken = self.WRAP(plainText[-16:])
+        print(signedtoken.fields)
+        print(f"SND_SEQ: {int.from_bytes(signedtoken['SND_SEQ'])}")
         print(f"final plainText after unpadding {len(plainText[:-(token['EC']+len(self.WRAP()))])}")
         hexdump.hexdump(plainText[:-(token['EC']+len(self.WRAP()))])
 

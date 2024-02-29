@@ -221,11 +221,13 @@ class _SimplifiedEnctype(_EnctypeProfile):
         print(f"confounder len={len(confounder)}")
         hexdump.hexdump(confounder)
         print(f"cls.padsize = {cls.padsize}")
+        print(f"cls.macsize = {cls.macsize}")
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
         print(f"basic_plaintext len={len(basic_plaintext)}")
         hexdump.hexdump(basic_plaintext)
         hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
         print(f"hmac len={len(hmac)}")
+        hexdump.hexdump(hmac)
         enc = cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
         print("returning from encrypt")
         return enc
@@ -237,7 +239,12 @@ class _SimplifiedEnctype(_EnctypeProfile):
 
         print("in decrypt")
         print(f"ciphertext len={len(ciphertext)}")
-        hexdump.hexdump(ciphertext)
+        dumpciphertext = None
+        if type(ciphertext) != type(bytearray) and type(ciphertext) != type(bytes):
+            dumpciphertext = bytes(ciphertext)
+        else:
+            dumpciphertext = ciphertext
+        hexdump.hexdump(dumpciphertext)
 
         if len(ciphertext) < cls.blocksize + cls.macsize:
             raise ValueError('ciphertext too short')
