@@ -213,32 +213,34 @@ class _SimplifiedEnctype(_EnctypeProfile):
 
     @classmethod
     def encrypt(cls, key, keyusage, plaintext, confounder):
+        from R2Log import logger
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
-        print("in encrypt")
+        logger.info("in encrypt")
         if confounder is None:
             confounder = get_random_bytes(cls.blocksize)
-        print(f"confounder len={len(confounder)}")
+        logger.info(f"confounder len={len(confounder)}")
         hexdump.hexdump(confounder)
-        print(f"cls.padsize = {cls.padsize}")
-        print(f"cls.macsize = {cls.macsize}")
+        logger.info(f"cls.padsize = {cls.padsize}")
+        logger.info(f"cls.macsize = {cls.macsize}")
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
-        print(f"basic_plaintext len={len(basic_plaintext)}")
+        logger.info(f"basic_plaintext len={len(basic_plaintext)}")
         hexdump.hexdump(basic_plaintext)
         hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
-        print(f"hmac len={len(hmac)}")
+        logger.info(f"hmac len={len(hmac)}")
         hexdump.hexdump(hmac)
         enc = cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
-        print("returning from encrypt")
+        logger.info("returning from encrypt")
         return enc
 
     @classmethod
     def decrypt(cls, key, keyusage, ciphertext):
+        from R2Log import logger
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
 
-        print("in decrypt")
-        print(f"ciphertext len={len(ciphertext)}")
+        logger.info("in decrypt")
+        logger.info(f"ciphertext len={len(ciphertext)}")
         dumpciphertext = None
         if type(ciphertext) != type(bytearray) and type(ciphertext) != type(bytes):
             dumpciphertext = bytes(ciphertext)
@@ -248,20 +250,21 @@ class _SimplifiedEnctype(_EnctypeProfile):
 
         if len(ciphertext) < cls.blocksize + cls.macsize:
             raise ValueError('ciphertext too short')
-        print(f"cls.maacsize = {cls.macsize}")
+        logger.info(f"cls.maacsize = {cls.macsize}")
 
         basic_ctext, mac = bytearray(ciphertext[:-cls.macsize]), bytearray(ciphertext[-cls.macsize:])
-        print(f"basic_ctext len={len(basic_ctext)}")
+        logger.info(f"basic_ctext len={len(basic_ctext)}")
         hexdump.hexdump(basic_ctext)
-        print(f"mac len={len(mac)}")
-        hexdump.hexdump(mac)
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
 
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
 
-        print("basic_plaintext")
+        logger.info("basic_plaintext")
         hexdump.hexdump(basic_plaintext)
+
+        logger.info("basic_plaintext without confounder")
+        hexdump.hexdump(basic_plaintext[cls.blocksize:])
 
         # tmp = basic_plaintext[cls.blocksize:]
         # padding = tmp[-16-16:-16]
@@ -272,19 +275,40 @@ class _SimplifiedEnctype(_EnctypeProfile):
         # print("")
         # basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
 
-        hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
+        # hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
+        import Cryptodome
+        hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, SHA).digest())
         expmac = hmac[:cls.macsize]
-        print(f"hmac len={len(hmac)} (computed mac)")
-        hexdump.hexdump(hmac)
-        print(f"expmac len={len(expmac)}")
+        # logger.info(f"hmac len={len(hmac)} (computed mac)")
+        # hexdump.hexdump(hmac)
+        logger.info(f"expmac len={len(expmac)} (computed mac)")
         hexdump.hexdump(expmac)
+        logger.info(f"real mac len={len(mac)}")
+        hexdump.hexdump(mac)
+
+        # logger.info("Bruteforcing mac to find the right params until we match the real mac")
+        # for msg in [basic_plaintext[cls.blocksize:], basic_plaintext]:
+        #     for i in range(32):
+        #         msg = msg[:-i]
+        #         for mod in [SHA, MD5, Cryptodome.Hash.SHA1]:
+        #             for kusage in range(0,30):
+        #                 for constant in [0x55, 0x99, 0xAA]:
+        #                     ki2 = cls.derive(key, pack('>IB', kusage, constant))
+        #                     calcmac = bytearray(HMAC.new(ki2.contents, msg, mod).digest())[:cls.macsize]
+        #                     if calcmac == mac:
+        #                         logger.success("found a match")
+        #                         logger.success(mod)
+        #                         logger.success(kusage)
+        #                         logger.success(constant)
+        #                         exit(0)
+        #                     hexdump.hexdump(calcmac)
         if not _mac_equal(mac, expmac):
             print('ciphertext integrity failure')
         else:
             print('ciphertext integrity correct')
-        # Discard the confounder.
-        print(f"cls.blocksize = {cls.blocksize}")
-        print('returning from decrypt')
+        # Discalogger.inford the confounder.
+        logger.info(f"cls.blocksize = {cls.blocksize}")
+        logger.info('returning from decrypt')
         return bytes(basic_plaintext[cls.blocksize:]),bytes(basic_plaintext[:cls.blocksize])
 
     @classmethod

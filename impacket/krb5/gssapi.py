@@ -299,33 +299,56 @@ class GSSAPI_AES():
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None,keyUsage=KG_USAGE_ACCEPTOR_SEAL):
+    def GSS_Unwrap(self, sessionKey, enc2, sequenceNumber, direction ='init', encrypt=True, authData=None, keyUsage=KG_USAGE_ACCEPTOR_SEAL):
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
+        from R2Log import logger
+        logger.info("in GSSAPI_Unwrap")
 
         cipher = self.cipherType()
         token = self.WRAP(authData[len(SEC_TRAILER()):])
+        logger.info(f"WRAP TOKEN (len={len(token)})")
+        print(token.fields)
 
-        rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
+        enc1 = authData[len(self.WRAP()) + len(SEC_TRAILER()):]
+        logger.info(f"Wrap token's Data = krb5_sgn_cksum (len={len(enc1)})")
+        hexdump.hexdump(enc1)
+
+        logger.info("Rotated = krb5_sgn_cksum + PDUData")
+        rotated = enc1 + enc2
+        hexdump.hexdump(rotated)
 
         cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
 
         # rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):]
         # cipherText = data + self.unrotate(rotated, token['RRC'] + token['EC'])
-        print("in GSSAPI_Unwrap")
-        print(f"cipherText dump len={len(cipherText)}")
-        hexdump.hexdump(cipherText)
-        print("decrypting.....")
-        plainText, confounder = cipher.decrypt(sessionKey, keyUsage,  cipherText)
-        print("again in GSS_Unwrap")
-        print(f"plaintText before unpadding {len(plainText)}")
-        hexdump.hexdump(plainText)
-        signedtoken = self.WRAP(plainText[-16:])
-        print(signedtoken.fields)
-        print(f"SND_SEQ: {int.from_bytes(signedtoken['SND_SEQ'])}")
-        print(f"final plainText after unpadding {len(plainText[:-(token['EC']+len(self.WRAP()))])}")
-        hexdump.hexdump(plainText[:-(token['EC']+len(self.WRAP()))])
 
-        return plainText[:-(token['EC']+len(self.WRAP()))], confounder
+        logger.info(f"cipherText dump len={len(cipherText)}")
+        hexdump.hexdump(cipherText)
+
+        logger.info("decrypting.....")
+        plainText, confounder = cipher.decrypt(sessionKey, keyUsage,  cipherText)
+
+        logger.info("again in GSS_Unwrap")
+
+        logger.info(f"confounder len={len(confounder)}")
+        hexdump.hexdump(confounder)
+        encdata, enchdr = plainText[:-len(self.WRAP())], plainText[-len(self.WRAP()):]
+        encdata, filler = encdata[:-token['EC']], encdata[-token['EC']:]
+
+        logger.info(f"encdata (len={len(encdata)})")
+        hexdump.hexdump(encdata)
+
+        logger.info(f"filler (len={len(filler)})")
+        hexdump.hexdump(filler)
+        signedtoken = self.WRAP(enchdr)
+
+        logger.info(f"enchdr (len={len(enchdr)})")
+        hexdump.hexdump(enchdr)
+        print(signedtoken.fields)
+
+        logger.info(f"SND_SEQ: {int.from_bytes(signedtoken['SND_SEQ'], byteorder='big')}")
+
+        return encdata, confounder
 
 class GSSAPI_AES256(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES256
