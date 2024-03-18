@@ -125,7 +125,7 @@ class GSSAPI_RC4:
         finalData = GSS_GETMIC_HEADER + token.getData()
         return finalData
    
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None):
         # Damn inacurate RFC, useful info from here
         # https://social.msdn.microsoft.com/Forums/en-US/fb98e8f4-e697-4652-bcb7-604e027e14cc/gsswrap-token-size-kerberos-and-rc4hmac?forum=os_windowsprotocols
         # and here
@@ -249,46 +249,43 @@ class GSSAPI_AES():
         result = data[numBytes:] + data[:numBytes]
         return result
         
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True,keyUsage=KG_USAGE_INITIATOR_SEAL,confounder=None, padding=None):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, keyUsage=KG_USAGE_INITIATOR_SEAL, confounder=None, padding=None, dce_rpc_header=None, auth_data_header=None):
         token = self.WRAP()
-        print("in GSS_Wrap")
+
         cipher = self.cipherType()
-        print(f"data len={len(data)}")
 
         if padding:
             padStr = padding
             pad = len(padding)
-            data += padStr
-
         else:
             #Let's pad the data
-            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
             padStr = b'\xFF' * pad
-            data += padStr
 
-        print(f"pad: {pad}")
-        print(f"cipher.blocksize: {cipher.blocksize}")
-        print(f"len(data) % cipher.blocksize): {len(data) % cipher.blocksize}")
-        print(f"padding")
-        hexdump.hexdump(padStr)
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
+
         if direction != 'init':
             token['Flags'] = 7
         else:
             token['Flags'] = 6
         token['EC'] = pad
+        # (RFC4121 section 4.2.4) the RRC field (as
+        #    defined in section 4.2.5) in the to-be-encrypted header contains the
+        #    hex value 00 00.
         token['RRC'] = 0
-        token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
+        token['SND_SEQ'] = struct.pack('>Q', sequenceNumber)
 
-        print(f"token.getData() len={len(token.getData())}")
-        hexdump.hexdump(token.getData())
-        print(f"data (plaintext to encrypt) len={len(data)}")
-        hexdump.hexdump(data)
-        cipherText = cipher.encrypt(sessionKey, keyUsage,  data + token.getData(), confounder)
-        print(f"cipherText len={len(cipherText)}")
-        hexdump.hexdump(cipherText)
+        # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
+        #   This is undocumented, and was identified by reversing cryptodll.dll
+        integrity_blob = None
+        if dce_rpc_header is not None and auth_data_header is not None:
+            integrity_blob = confounder + dce_rpc_header + data + auth_data_header + padStr + token.getData()
+
+        data += padStr
+
+        cipherText = cipher.encrypt(key=sessionKey, keyusage=keyUsage, plaintext=data + token.getData(), confounder=confounder, integrity_blob=integrity_blob)
         token['RRC'] = rrc
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
@@ -299,54 +296,25 @@ class GSSAPI_AES():
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, enc2, sequenceNumber, direction ='init', encrypt=True, authData=None, keyUsage=KG_USAGE_ACCEPTOR_SEAL):
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None, keyUsage=KG_USAGE_ACCEPTOR_SEAL, dcerpcheader=None):
+        # implementation as per [MS-KILE] Section 4.3
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
-        from R2Log import logger
-        logger.info("in GSSAPI_Unwrap")
 
         cipher = self.cipherType()
         token = self.WRAP(authData[len(SEC_TRAILER()):])
-        logger.info(f"WRAP TOKEN (len={len(token)})")
-        print(token.fields)
 
         enc1 = authData[len(self.WRAP()) + len(SEC_TRAILER()):]
-        logger.info(f"Wrap token's Data = krb5_sgn_cksum (len={len(enc1)})")
-        hexdump.hexdump(enc1)
+        enc2 = data
 
-        logger.info("Rotated = krb5_sgn_cksum + PDUData")
-        rotated = enc1 + enc2
-        hexdump.hexdump(rotated)
+        cipherText = self.unrotate(enc1 + enc2, token['RRC'] + token['EC'])
 
-        cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
+        # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
+        #   This is undocumented, and was identified by reversing cryptodll.dll
+        #   no need to implement, assuming the other client is legit
+        plainText, confounder = cipher.decrypt(sessionKey, keyUsage, cipherText, ignore_integrity=True)
 
-        # rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):]
-        # cipherText = data + self.unrotate(rotated, token['RRC'] + token['EC'])
-
-        logger.info(f"cipherText dump len={len(cipherText)}")
-        hexdump.hexdump(cipherText)
-
-        logger.info("decrypting.....")
-        plainText, confounder = cipher.decrypt(sessionKey, keyUsage,  cipherText)
-
-        logger.info("again in GSS_Unwrap")
-
-        logger.info(f"confounder len={len(confounder)}")
-        hexdump.hexdump(confounder)
         encdata, enchdr = plainText[:-len(self.WRAP())], plainText[-len(self.WRAP()):]
         encdata, filler = encdata[:-token['EC']], encdata[-token['EC']:]
-
-        logger.info(f"encdata (len={len(encdata)})")
-        hexdump.hexdump(encdata)
-
-        logger.info(f"filler (len={len(filler)})")
-        hexdump.hexdump(filler)
-        signedtoken = self.WRAP(enchdr)
-
-        logger.info(f"enchdr (len={len(enchdr)})")
-        hexdump.hexdump(enchdr)
-        print(signedtoken.fields)
-
-        logger.info(f"SND_SEQ: {int.from_bytes(signedtoken['SND_SEQ'], byteorder='big')}")
 
         return encdata, confounder
 

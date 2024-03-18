@@ -39,7 +39,6 @@
 from binascii import unhexlify
 from functools import reduce
 from os import urandom
-import hexdump
 
 # XXX current status:
 # * Done and tested
@@ -212,104 +211,41 @@ class _SimplifiedEnctype(_EnctypeProfile):
         return cls.random_to_key(rndseed[0:cls.seedsize])
 
     @classmethod
-    def encrypt(cls, key, keyusage, plaintext, confounder):
-        from R2Log import logger
+    def encrypt(cls, key, keyusage, plaintext, confounder, integrity_blob=None):
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
-        logger.info("in encrypt")
         if confounder is None:
             confounder = get_random_bytes(cls.blocksize)
-        logger.info(f"confounder len={len(confounder)}")
-        hexdump.hexdump(confounder)
-        logger.info(f"cls.padsize = {cls.padsize}")
-        logger.info(f"cls.macsize = {cls.macsize}")
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
-        logger.info(f"basic_plaintext len={len(basic_plaintext)}")
-        hexdump.hexdump(basic_plaintext)
-        hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
-        logger.info(f"hmac len={len(hmac)}")
-        hexdump.hexdump(hmac)
+        # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
+        #   This is undocumented, and was identified by reversing cryptodll.dll
+        if integrity_blob is not None:
+            hmac = HMAC.new(ki.contents, integrity_blob, cls.hashmod).digest()
+        else:
+            hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
         enc = cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
-        logger.info("returning from encrypt")
         return enc
 
     @classmethod
-    def decrypt(cls, key, keyusage, ciphertext):
-        from R2Log import logger
+    def decrypt(cls, key, keyusage, ciphertext, ignore_integrity=False):
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
-
-        logger.info("in decrypt")
-        logger.info(f"ciphertext len={len(ciphertext)}")
-        dumpciphertext = None
-        if type(ciphertext) != type(bytearray) and type(ciphertext) != type(bytes):
-            dumpciphertext = bytes(ciphertext)
-        else:
-            dumpciphertext = ciphertext
-        hexdump.hexdump(dumpciphertext)
-
         if len(ciphertext) < cls.blocksize + cls.macsize:
             raise ValueError('ciphertext too short')
-        logger.info(f"cls.maacsize = {cls.macsize}")
-
         basic_ctext, mac = bytearray(ciphertext[:-cls.macsize]), bytearray(ciphertext[-cls.macsize:])
-        logger.info(f"basic_ctext len={len(basic_ctext)}")
-        hexdump.hexdump(basic_ctext)
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
-
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
-
-        logger.info("basic_plaintext")
-        hexdump.hexdump(basic_plaintext)
-
-        logger.info("basic_plaintext without confounder")
-        hexdump.hexdump(basic_plaintext[cls.blocksize:])
-
-        # tmp = basic_plaintext[cls.blocksize:]
-        # padding = tmp[-16-16:-16]
-        # print("")
-        # print("padding")
-        # for i in padding:
-        #     print(f"{hex(i)},",end="")
-        # print("")
-        # basic_plaintext = basic_plaintext.replace(padding,b"\xff"*len(padding))
-
-        # hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
-        import Cryptodome
         hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, SHA).digest())
         expmac = hmac[:cls.macsize]
-        # logger.info(f"hmac len={len(hmac)} (computed mac)")
-        # hexdump.hexdump(hmac)
-        logger.info(f"expmac len={len(expmac)} (computed mac)")
-        hexdump.hexdump(expmac)
-        logger.info(f"real mac len={len(mac)}")
-        hexdump.hexdump(mac)
-
-        # logger.info("Bruteforcing mac to find the right params until we match the real mac")
-        # for msg in [basic_plaintext[cls.blocksize:], basic_plaintext]:
-        #     for i in range(32):
-        #         msg = msg[:-i]
-        #         for mod in [SHA, MD5, Cryptodome.Hash.SHA1]:
-        #             for kusage in range(0,30):
-        #                 for constant in [0x55, 0x99, 0xAA]:
-        #                     ki2 = cls.derive(key, pack('>IB', kusage, constant))
-        #                     calcmac = bytearray(HMAC.new(ki2.contents, msg, mod).digest())[:cls.macsize]
-        #                     if calcmac == mac:
-        #                         logger.success("found a match")
-        #                         logger.success(mod)
-        #                         logger.success(kusage)
-        #                         logger.success(constant)
-        #                         exit(0)
-        #                     hexdump.hexdump(calcmac)
-        if not _mac_equal(mac, expmac):
-            print('ciphertext integrity failure')
-        else:
-            print('ciphertext integrity correct')
-        # Discalogger.inford the confounder.
-        logger.info(f"cls.blocksize = {cls.blocksize}")
-        logger.info('returning from decrypt')
-        return bytes(basic_plaintext[cls.blocksize:]),bytes(basic_plaintext[:cls.blocksize])
+        # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
+        #   This is undocumented, and was identified by reversing cryptodll.dll
+        #   in that case, integrity_blob to send to HMAC
+        #     = confounder + dce_rpc_header + data + auth_data_header + filler + wrap_token
+        #   no need to implement, assuming the other client is legit
+        if not _mac_equal(mac, expmac) and not ignore_integrity:
+            raise InvalidChecksum('ciphertext integrity failure')
+        return bytes(basic_plaintext[cls.blocksize:]), bytes(basic_plaintext[:cls.blocksize])
 
     @classmethod
     def prf(cls, key, string):
