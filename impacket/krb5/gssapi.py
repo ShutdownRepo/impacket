@@ -254,6 +254,9 @@ class GSSAPI_AES():
 
         cipher = self.cipherType()
 
+        if confounder is None:
+            confounder = b(''.join([rand.choice(string.ascii_letters) for _ in range(8)]))
+
         if padding:
             padStr = padding
             pad = len(padding)
