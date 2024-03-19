@@ -61,10 +61,6 @@ from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
 from six import b, PY3, indexbytes, binary_type
 
-from R2Log import logger
-import hexdump
-
-
 def get_random_bytes(lenBytes):
     # We don't really need super strong randomness here to use PyCrypto.Random
     return urandom(lenBytes)
@@ -226,13 +222,11 @@ class _SimplifiedEnctype(_EnctypeProfile):
             hmac = HMAC.new(ki.contents, integrity_blob, cls.hashmod).digest()
         else:
             hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
-        logger.info("full hmac in crypto encrypt")
-        hexdump.hexdump(hmac)
         enc = cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
         return enc
 
     @classmethod
-    def decrypt(cls, key, keyusage, ciphertext, ignore_integrity=False, dce_rpc_header=None, auth_data_header=None):
+    def decrypt(cls, key, keyusage, ciphertext, ignore_integrity=False, wrap_token_len=None, filler_len=None, dce_rpc_header=None, auth_data_header=None):
         ki = cls.derive(key, pack('>IB', keyusage, 0x55))
         ke = cls.derive(key, pack('>IB', keyusage, 0xAA))
         if len(ciphertext) < cls.blocksize + cls.macsize:
@@ -248,21 +242,11 @@ class _SimplifiedEnctype(_EnctypeProfile):
         #     = confounder + dce_rpc_header + data + auth_data_header + filler + wrap_token
         #   no need to implement, assuming the other client is legit
         if dce_rpc_header is not None and auth_data_header is not None:
-            plaintext_data, plaintext_filler_and_wrap_token_header = plaintext[:-8-16], plaintext[-8-16:]  # FIXME dynamically set the filler size
+            plaintext_data, plaintext_filler_and_wrap_token_header = plaintext[:-filler_len-wrap_token_len], plaintext[-filler_len-wrap_token_len:]  # FIXME dynamically set the filler size
             integrity_blob = confounder + dce_rpc_header + plaintext_data + auth_data_header + plaintext_filler_and_wrap_token_header
-            logger.info("integrity blob in crypto decrypt")
-            hexdump.hexdump(confounder)
-            hexdump.hexdump(dce_rpc_header)
-            hexdump.hexdump(plaintext_data)
-            hexdump.hexdump(auth_data_header)
-            hexdump.hexdump(plaintext_filler_and_wrap_token_header)
             hmac = bytearray(HMAC.new(ki.contents, integrity_blob, SHA).digest())
-            logger.info("HMAC calculated")
-            hexdump.hexdump(hmac)
         else:
             hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, SHA).digest())
-        logger.info("HMAC from packet")
-        hexdump.hexdump(mac)
         expmac = hmac[:cls.macsize]
         if not _mac_equal(mac, expmac) and not ignore_integrity:
             raise InvalidChecksum('ciphertext integrity failure')

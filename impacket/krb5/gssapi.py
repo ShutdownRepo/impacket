@@ -18,8 +18,6 @@
 import struct
 import random
 import string
-import hexdump
-from R2Log import logger
 
 from six import b
 
@@ -249,8 +247,15 @@ class GSSAPI_AES():
         numBytes %= len(data)
         result = data[numBytes:] + data[:numBytes]
         return result
+
+    def get_filler(self, data):
+        cipher = self.cipherType()
+        length = (cipher.blocksize - (len(data) % cipher.blocksize)) or 16
+        filler = b'\x00' * length
+        return filler
+
         
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, keyUsage=KG_USAGE_INITIATOR_SEAL, confounder=None, padding=None, dce_rpc_header=None, auth_data_header=None):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, acceptorSubkey=False, keyUsage=KG_USAGE_INITIATOR_SEAL, confounder=None, dce_rpc_header=None, auth_data_header=None):
         token = self.WRAP()
 
         cipher = self.cipherType()
@@ -258,23 +263,19 @@ class GSSAPI_AES():
         if confounder is None:
             confounder = b(''.join([rand.choice(string.ascii_letters) for _ in range(16)]))
 
-        if padding:
-            padStr = padding
-            pad = len(padding)
-        else:
-            #Let's pad the data
-            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
-            padStr = b'\x00' * pad
-
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
 
+        token['Flags'] = 0
+        if acceptorSubkey:
+            token['Flags'] |= 4  # AcceptorSubKey flag (0x00100)
+        if encrypt:
+            token['Flags'] |= 2  # Sealed flag (0x00010)
         if direction != 'init':
-            token['Flags'] = 3
-        else:
-            token['Flags'] = 2
-        token['EC'] = pad
+            token['Flags'] |= 1  # SendByAcceptor flag (0x00001)
+
+        token['EC'] = len(self.get_filler(data))
         # (RFC4121 section 4.2.4) the RRC field (as
         #    defined in section 4.2.5) in the to-be-encrypted header contains the
         #    hex value 00 00.
@@ -285,15 +286,9 @@ class GSSAPI_AES():
         #   This is undocumented, and was identified by reversing cryptodll.dll
         integrity_blob = None
         if dce_rpc_header is not None and auth_data_header is not None:
-            integrity_blob = confounder + dce_rpc_header + data + auth_data_header + padStr + token.getData()
-            logger.info("integrity blob in gssapi wrap")
-            hexdump.hexdump(confounder)
-            hexdump.hexdump(dce_rpc_header)
-            hexdump.hexdump(data)
-            hexdump.hexdump(auth_data_header)
-            hexdump.hexdump(padStr + token.getData())
+            integrity_blob = confounder + dce_rpc_header + data + auth_data_header + self.get_filler(data) + token.getData()
 
-        data += padStr
+        data += self.get_filler(data)
 
         cipherText = cipher.encrypt(key=sessionKey, keyusage=keyUsage, plaintext=data + token.getData(), confounder=confounder, integrity_blob=integrity_blob)
         token['RRC'] = rrc
@@ -321,7 +316,11 @@ class GSSAPI_AES():
         # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
         #   This is undocumented, and was identified by reversing cryptodll.dll
         #   no need to implement, assuming the other client is legit
-        plainText, confounder = cipher.decrypt(sessionKey, keyUsage, cipherText, dce_rpc_header=dce_rpc_header, auth_data_header=auth_data_header, ignore_integrity=ignore_integrity)
+        plainText, confounder = cipher.decrypt(
+            sessionKey, keyUsage, cipherText,
+            dce_rpc_header=dce_rpc_header, auth_data_header=auth_data_header, ignore_integrity=ignore_integrity,
+            wrap_token_len=len(self.WRAP()), filler_len=token['EC']
+        )
 
         encdata, enchdr = plainText[:-len(self.WRAP())], plainText[-len(self.WRAP()):]
         encdata, filler = encdata[:-token['EC']], encdata[-token['EC']:]
