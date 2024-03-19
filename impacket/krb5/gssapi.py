@@ -19,6 +19,7 @@ import struct
 import random
 import string
 import hexdump
+from R2Log import logger
 
 from six import b
 
@@ -255,24 +256,24 @@ class GSSAPI_AES():
         cipher = self.cipherType()
 
         if confounder is None:
-            confounder = b(''.join([rand.choice(string.ascii_letters) for _ in range(8)]))
+            confounder = b(''.join([rand.choice(string.ascii_letters) for _ in range(16)]))
 
         if padding:
             padStr = padding
             pad = len(padding)
         else:
             #Let's pad the data
-            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
-            padStr = b'\xFF' * pad
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 16
+            padStr = b'\x00' * pad
 
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
 
         if direction != 'init':
-            token['Flags'] = 7
+            token['Flags'] = 3
         else:
-            token['Flags'] = 6
+            token['Flags'] = 2
         token['EC'] = pad
         # (RFC4121 section 4.2.4) the RRC field (as
         #    defined in section 4.2.5) in the to-be-encrypted header contains the
@@ -285,6 +286,12 @@ class GSSAPI_AES():
         integrity_blob = None
         if dce_rpc_header is not None and auth_data_header is not None:
             integrity_blob = confounder + dce_rpc_header + data + auth_data_header + padStr + token.getData()
+            logger.info("integrity blob in gssapi wrap")
+            hexdump.hexdump(confounder)
+            hexdump.hexdump(dce_rpc_header)
+            hexdump.hexdump(data)
+            hexdump.hexdump(auth_data_header)
+            hexdump.hexdump(padStr + token.getData())
 
         data += padStr
 
@@ -299,7 +306,7 @@ class GSSAPI_AES():
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None, keyUsage=KG_USAGE_ACCEPTOR_SEAL, dcerpcheader=None):
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None, keyUsage=KG_USAGE_ACCEPTOR_SEAL, dce_rpc_header=None, auth_data_header=None, ignore_integrity=False):
         # implementation as per [MS-KILE] Section 4.3
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
 
@@ -310,11 +317,11 @@ class GSSAPI_AES():
         enc2 = data
 
         cipherText = self.unrotate(enc1 + enc2, token['RRC'] + token['EC'])
-
+        
         # For Kerberos SSP: blob for HMAC calculation is different from blob for encryption.
         #   This is undocumented, and was identified by reversing cryptodll.dll
         #   no need to implement, assuming the other client is legit
-        plainText, confounder = cipher.decrypt(sessionKey, keyUsage, cipherText, ignore_integrity=True)
+        plainText, confounder = cipher.decrypt(sessionKey, keyUsage, cipherText, dce_rpc_header=dce_rpc_header, auth_data_header=auth_data_header, ignore_integrity=ignore_integrity)
 
         encdata, enchdr = plainText[:-len(self.WRAP())], plainText[-len(self.WRAP()):]
         encdata, filler = encdata[:-token['EC']], encdata[-token['EC']:]
