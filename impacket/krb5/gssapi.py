@@ -227,7 +227,7 @@ class GSSAPI_AES():
         # Let's pad the data
         pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
-        data += padStr.encode()
+        data += padStr
 
         checkSumProfile = self.checkSumProfile()
 
