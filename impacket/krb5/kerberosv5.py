@@ -189,7 +189,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     except KerberosError as e:
         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
             if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey == b'':
-                supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
+                supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
                 r = sendReceive(message, domain, kdcHost)
@@ -343,7 +343,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # application session key), encrypted with the client key
     # (Section 5.4.2)
     try:
-        plainText, _ = cipher.decrypt(key, 3, cipherText)
+        plainText = cipher.decrypt(key, 3, cipherText)
     except InvalidChecksum as e:
         # probably bad password if preauth is disabled
         if preAuth is False:
@@ -439,11 +439,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody['nonce'] = rand.getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (
-                          int(cipher.enctype),
                           int(constants.EncryptionTypes.rc4_hmac.value),
                           int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                          int(constants.EncryptionTypes.des_cbc_md5.value)
-                       )
+                          int(constants.EncryptionTypes.des_cbc_md5.value),
+                          int(cipher.enctype)
+                 )
                 )
 
     message = encoder.encode(tgsReq)
@@ -459,7 +459,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # Key Usage 8
     # TGS-REP encrypted part (includes application session
     # key), encrypted with the TGS session key (Section 5.4.2)
-    plainText,_ = cipher.decrypt(sessionKey, 8, cipherText)
+    plainText = cipher.decrypt(sessionKey, 8, cipherText)
 
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
@@ -502,7 +502,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     # AP-REP encrypted part (includes application session
     # subkey), encrypted with the application session key
     # (Section 5.5.2)
-    plainText,_ = cipher.decrypt(sessionKey, 12, cipherText)
+    plainText = cipher.decrypt(sessionKey, 12, cipherText)
 
     encAPRepPart = decoder.decode(plainText, asn1Spec = EncAPRepPart())[0]
 
