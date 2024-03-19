@@ -443,7 +443,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
                           int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
                           int(constants.EncryptionTypes.des_cbc_md5.value),
                           int(cipher.enctype)
-                        )
+                       )
                 )
 
     message = encoder.encode(tgsReq)
